@@ -58,7 +58,7 @@ async function startSocketServer() {
         //Allows for the client to tell the server that it received some data; and it can update its sync state to a given timestamp
         socket.on("update-sync-state", async ({ did, hash, date, linkLanguageUUID }) => {
             const results = await AgentSyncState.upsert(
-                {DID: did, LinkLanguageUUID: linkLanguageUUID, StatusTimestamp: date, Hash: Hash}, {
+                {DID: did, LinkLanguageUUID: linkLanguageUUID, StatusTimestamp: date, Hash: hash}, {
                 fields: ['DID', 'LinkLanguageUUID', 'Timestamp', 'HASH'],
             });
             console.log("updated sync state with result", results);
