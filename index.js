@@ -20,6 +20,31 @@ async function startSocketServer() {
         res.send("<h1>Hello world</h1>");
     });
 
+    app.post("/currentRevision", (req, res) => {
+        //Fetch the agents SyncState given the DID and LinkLanguageUUID
+        //If there is no record, return null
+        //If there is a record, return timestamp
+
+        //Get did and linkLanguageUuid from posted json
+        const did = req.body.did;
+        const linkLanguageUUID = req.body.linkLanguageUUID;
+        console.log("POST GOT", did, linkLanguageUUID);
+
+        AgentSyncState.findAll({
+            where: {
+                DID: did,
+                LinkLanguageUUID: linkLanguageUUID,
+            },
+        }).then((results) => {
+            console.log("CURRENT REVISION GOT", results);
+            if (results.length > 0) {
+                res.json({currentRevision: results[0].Timestamp});
+            } else {
+                res.json({currentRevision: null});
+            }
+        });
+    })
+
     // Set up a simple timestamp function for prettier logs
     const timestamp = () => `[${new Date().toISOString()}]`;
 
