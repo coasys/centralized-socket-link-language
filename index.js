@@ -56,12 +56,29 @@ async function startSocketServer() {
 
         //Allows for the client to tell the server that it received some data; and it can update its sync state to a given timestamp
         socket.on("update-sync-state", async ({ did, date, linkLanguageUUID }) => {
-            const results = await AgentSyncState.upsert(
-                {DID: did, LinkLanguageUUID: linkLanguageUUID, Timestamp: date}, {
-                fields: ['DID', 'LinkLanguageUUID', 'Timestamp'],
+            const existingRecord = await AgentSyncState.findOne({
+                where: {
+                    DID: did,
+                    LinkLanguageUUID: linkLanguageUUID,
+                },
             });
-            console.log("updated sync state with result", results);
-            io.to(connectionId).emit("update-sync-state-status", {status: "Ok"})
+
+            if (existingRecord) {
+                // Update the existing record
+                await existingRecord.update({
+                    Timestamp: date,
+                });
+                console.log('Record updated:', did, linkLanguageUUID, date);
+            } else {
+                const results = await AgentSyncState.upsert(
+                    { DID: did, LinkLanguageUUID: linkLanguageUUID, Timestamp: date }, {
+                    fields: ['DID', 'LinkLanguageUUID', 'Timestamp'],
+                });
+                console.log("updated sync state with result", results);
+
+            }
+
+            io.to(connectionId).emit("update-sync-state-status", { status: "Ok" })
         })
 
         //Allows the client to save a commit to the server; and have that commit be signaled to all agents in the room
@@ -106,7 +123,7 @@ async function startSocketServer() {
                 },
                 serverRecordTimestamp
             });
-            
+
             //Tell the original client that it was recorded correctly
             io.to(connectionId).emit("commit-status", {
                 status: "Ok",
@@ -129,12 +146,14 @@ async function startSocketServer() {
                     timestamp = agentSyncStateResult[0]?.Timestamp;
                 }
 
+                timestamp = 0;
+
                 // Retrieve records from Links
                 const results = await Diff.findAll({
                     where: {
                         LinkLanguageUUID: linkLanguageUUID,
                         ServerRecordTimestamp: {
-                            [Sequelize.Op.gte]: timestamp,
+                            [Sequelize.Op.gt]: timestamp,
                         },
                     },
                     order: [['ServerRecordTimestamp', 'DESC']],

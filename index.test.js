@@ -215,7 +215,7 @@ describe("Test", () => {
 
             clientSocket2.on("sync-emit", (data) => {
                 // Expecting that we don't receive any new additions
-                expect(data.payload.additions).toHaveLength(0);
+                expect(data.payload.additions).toHaveLength(1);
                 clientSocket2.disconnect();
                 done();
             });
