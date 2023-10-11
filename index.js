@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
+import { Sequelize, DataTypes } from "sequelize";
 
 const sequelize = new Sequelize('sqlite::memory:');
 
@@ -73,7 +74,7 @@ const ActiveAgent = sequelize.define('ActiveAgent', {
 });
 
 const AgentSyncState = sequelize.define('AgentSyncState', {
-    LinkID: {
+    ID: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
@@ -139,6 +140,8 @@ function hash(data, author, timestamp) {
 const timestamp = () => `[${new Date().toISOString()}]`;
 
 io.on("connection", function (socket) {
+    let connectionId = socket.id;
+
     console.log(`${timestamp()} New connection: ${socket.id}`);
 
     socket.on("disconnect", (reason) => {
@@ -148,7 +151,6 @@ io.on("connection", function (socket) {
     socket.on("error", (error) => {
         console.error(`${timestamp()} Error on socket ${socket.id}: `, error);
     });
-
 
     // Join a specific room (Subscribe to a unique ID)
     socket.on("join-room", function (roomId) {
@@ -162,20 +164,25 @@ io.on("connection", function (socket) {
         console.log(`Socket ${socket.id} left room ${roomId}`);
     });
 
-    // Broadcast a message to a specific room (unique ID)
-    socket.on("broadcast", function ({ roomId, signal }) {
-        console.log(`Broadcasting to room ${roomId}: ${signal}`);
-        io.to(roomId).emit("signal", signal);
-    });
+    // // Broadcast a message to a specific room (unique ID)
+    // socket.on("broadcast", function ({ roomId, signal }) {
+    //     console.log(`Broadcasting to room ${roomId}: ${signal}`);
+    //     io.to(roomId).emit("signal", signal);
+    // });
 
-    socket.on("receive", function (msg) {
-        console.log("socket received something hash related");
-        hashes.set(socket.id, msg);
-    });
+    //Allows for the client to tell the server that it received some data; and it can update its sync state to a given timestamp
+    socket.on("update-sync-state", async ({ did, hash, date, linkLanguageUUID }) => {
+        const results = await AgentSyncState.upsert(
+            {DID: did, LinkLanguageUUID: linkLanguageUUID, StatusTimestamp: date, Hash: Hash}, {
+            fields: ['DID', 'LinkLanguageUUID', 'Timestamp', 'HASH'],
+        });
+        console.log("updated sync state with result", results);
+        io.to(connectionId).emit("update-sync-state-status", {status: "Ok"})
+    })
 
+    //Allows the client to save a commit to the server; and have that commit be signaled to all agents in the room
     socket.on("commit", async ({ additions, removals, linkLanguageUUID, did }) => {
-        let currentActiveRevisionHash = null;
-        let currentActiveRevisionTimestamp = null;
+        let commitServerTimestamp = new Date();
 
         if (removals.length > 0) {
             const updatePromises = removals.map((removal) => {
@@ -186,52 +193,60 @@ io.on("connection", function (socket) {
 
             try {
                 const results = await Promise.all(updatePromises);
-                console.log('Updates successful:', results);
+                console.log('Removal updates successful:', results);
             } catch (error) {
-                console.error('Error updating records:', error);
+                console.error('Error updating removal records:', error);
             }
-
-            const removal = removals[removals.length - 1];
-            currentActiveRevisionHash = hash(removal.data, removal.author, removal.timestamp);
-            currentActiveRevisionTimestamp = removal.timestamp;
         }
 
         if (additions.length > 0) {
-            const results = await Link.bulkCreate(additions.map((addition) => ({
-                LinkLanguageUUID: 'your_link_language_uuid', // Replace with your actual value
-                Hash: hash(addition.data, addition.author, addition.timestamp),
-                Link: JSON.stringify(addition),
-                DID: addition.author,
-                LinkTimestamp: addition.timestamp,
-            })));
-
-            const addition = additions[additions.length - 1];
-            currentActiveRevisionHash = hash(addition.data, addition.author, addition.timestamp);
-            currentActiveRevisionTimestamp = addition.timestamp;
+            try {
+                const results = await Link.bulkCreate(additions.map((addition) => ({
+                    LinkLanguageUUID: linkLanguageUUID,
+                    Hash: hash(addition.data, addition.author, addition.timestamp),
+                    Link: JSON.stringify(addition),
+                    DID: addition.author,
+                    LinkTimestamp: addition.timestamp,
+                })));
+                console.log('Addtion updates successful:', results);
+            } catch (error) {
+                console.error('Error updating addition records:', error);
+            }
         }
 
-        await AgentSyncState.upsert({
-            DID: did,
-            LinkLanguageUUID: LinkLanguageUUID,
-            HASH: currentActiveRevisionHash,
-            Timestamp: currentActiveRevisionTimestamp,
-        }, {
-            fields: ['DID', 'LinkLanguageUUID', 'HASH', 'Timestamp'],
-        });
+        // await AgentSyncState.upsert({
+        //     DID: did,
+        //     LinkLanguageUUID: LinkLanguageUUID,
+        //     HASH: currentActiveRevisionHash,
+        //     Timestamp: currentActiveRevisionTimestamp,
+        // }, {
+        //     fields: ['DID', 'LinkLanguageUUID', 'HASH', 'Timestamp'],
+        // });
 
-        const results = await AgentSyncState.findAll({
-            where: {
-                DID: did,
-                LinkLanguageUUID: LinkLanguageUUID,
+        // const results = await AgentSyncState.findAll({
+        //     where: {
+        //         DID: did,
+        //         LinkLanguageUUID: LinkLanguageUUID,
+        //     },
+        // });
+
+        //Send a signal to all agents online in the link language with the commit data
+        io.to(roomId).emit("signal", {
+            payload: {
+                additions,
+                removals
             },
+            timestamp: commitServerTimestamp
         });
-
-        socket.emit("commit-results", {
-            hash: results[0].Hash,
-            timestamp: results[0].Timestamp
-        })
+        
+        //Tell the original client that it was recorded correctly
+        io.to(connectionId).emit("commit-status", {
+            status: "Ok",
+            timestamp: commitServerTimestamp
+        });
     })
 
+    //Allows an agent to sync the links since the last timestamp where they received links from
     socket.on("sync", async ({ linkLanguageUUID, did, timestamp }) => {
         try {
             // If timestamp is not provided, retrieve it from AgentSyncState
@@ -270,7 +285,8 @@ io.on("connection", function (socket) {
                 }
             }
 
-            socket.emit("sync-result", value)
+            //Only return the sync results to the connection id that requested it
+            io.to(connectionId).emit("sync-emit", { payload: value })
         } catch (error) {
             console.error('Error retrieving links:', error);
         }
@@ -285,10 +301,8 @@ io.on("connection", function (socket) {
 
         const finalResult = results.map((r) => JSON.parse(r.Link))
 
-        socket.emit("render-emit", finalResult);
+        io.to(connectionId).emit("render-emit", { payload: finalResult });
     })
-
-
 });
 
 server.listen(3000, () => {
