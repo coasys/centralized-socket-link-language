@@ -261,7 +261,7 @@ function startSocketServer() {
                 }
 
                 // Retrieve records from Links
-                const results = await Links.findAll({
+                const results = await Link.findAll({
                     where: {
                         LinkLanguageUUID: linkLanguageUUID,
                         LinkTimestamp: {

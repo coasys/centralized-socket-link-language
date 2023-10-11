@@ -43,7 +43,6 @@ describe("Test", () => {
         }))
 
         clientSocket.on("commit-status", (arg) => {
-            console.log('meow')
             expect(arg.status).toBe("Ok");
             done();
         });
@@ -61,4 +60,21 @@ describe("Test", () => {
             done();
         });
     });
+
+    test("Sync test", (done) => {
+        clientSocket.emit("join-room", channelId);
+
+        clientSocket.emit("sync", ({
+            "linkLanguageUUID": "languageID",
+            "did": "did:test1",
+            "timestamp": 1697033597138,
+        }))
+
+        clientSocket.on("sync-emit", (arg) => {
+            console.log("wow", arg)
+            expect(arg.payload.additions.length).toBe(1);
+            expect(arg.payload.removals.length).toBe(0);
+            done();
+        });
+    })
 })
