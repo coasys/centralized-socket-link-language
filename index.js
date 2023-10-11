@@ -292,9 +292,9 @@ function startSocketServer() {
         })
 
         socket.on("render", async ({ linkLanguageUUID }) => {
-            const results = await Links.findAll({
+            const results = await Link.findAll({
                 where: {
-                    LinkLanguageUUID: LinkLanguageUUID,
+                    LinkLanguageUUID: linkLanguageUUID,
                 },
             });
 

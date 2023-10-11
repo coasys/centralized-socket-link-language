@@ -48,4 +48,17 @@ describe("Test", () => {
             done();
         });
     });
+
+    test("Render test", (done) => {
+        clientSocket.emit("join-room", channelId);
+
+        clientSocket.emit("render", ({
+            "linkLanguageUUID": "languageID",
+        }))
+
+        clientSocket.on("render-emit", (arg) => {
+            expect(arg.payload.length).toBe(1);
+            done();
+        });
+    });
 })
