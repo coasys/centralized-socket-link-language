@@ -230,7 +230,7 @@ function startSocketServer() {
             // });
 
             //Send a signal to all agents online in the link language with the commit data
-            io.to(roomId).emit("signal", {
+            io.to(linkLanguageUUID).emit("signal", {
                 payload: {
                     additions,
                     removals
@@ -253,7 +253,7 @@ function startSocketServer() {
                     const agentSyncStateResult = await AgentSyncState.findAll({
                         where: {
                             DID: did,
-                            LinkLanguageUUID: LinkLanguageUUID,
+                            LinkLanguageUUID: linkLanguageUUID,
                         },
                     });
 
@@ -261,7 +261,7 @@ function startSocketServer() {
                 }
 
                 // Retrieve records from Links
-                const results = await Links.findAll({
+                const results = await Link.findAll({
                     where: {
                         LinkLanguageUUID: linkLanguageUUID,
                         LinkTimestamp: {

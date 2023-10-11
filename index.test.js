@@ -48,4 +48,82 @@ describe("Test", () => {
             done();
         });
     });
-})
+
+    test("Commit and Sync", (done) => {
+        const channelId = "languageID2";
+        const commitData = {
+            "additions": [{
+                "author": "did:test-sync1",
+                "timestamp": Date.now(),
+                "data": {
+                    "source": "test-sync",
+                    "predicate": "test-sync",
+                    "target": "test-sync"
+                }
+            }],
+            "removals": [],
+            "linkLanguageUUID": "languageID2",
+            "did": "did:test-sync1",
+            "roomId": channelId
+        };
+
+        // User 1 commits a message
+        clientSocket.emit("commit", commitData);
+
+        clientSocket.on("commit-status", (arg) => {
+            expect(arg.status).toBe("Ok");
+
+            // After the commit, another user connects and calls sync
+            const clientSocket2 = ioc(`http://localhost:3000`);
+
+            clientSocket2.on("connect", () => {
+                clientSocket2.emit("join-room", channelId);
+                clientSocket2.emit("sync", {
+                    "linkLanguageUUID": "languageID2",
+                    "did": "did:test-sync2"
+                });
+            });
+
+            clientSocket2.on("sync-emit", (data) => {
+                expect(data.payload.additions).toEqual([commitData.additions[0]]);
+                clientSocket2.disconnect();
+                done();
+            });
+        });
+    });
+
+    test("Commit and Signal", (done) => {
+        const channelId = "languageID3";
+        const commitData = {
+            "additions": [{
+                "author": "did:test-signal1",
+                "timestamp": Date.now(),
+                "data": {
+                    "source": "test-signal",
+                    "predicate": "test-signal",
+                    "target": "test-signal"
+                }
+            }],
+            "removals": [],
+            "linkLanguageUUID": "languageID3",
+            "did": "did:test-signal1",
+            "roomId": channelId
+        };
+
+        // Another user connects and listens to signal
+        const clientSocket2 = ioc(`http://localhost:3000`);
+
+        clientSocket2.on("connect", () => {
+            clientSocket2.emit("join-room", channelId);
+
+            // User 1 commits a message
+            clientSocket.emit("commit", commitData);
+
+            clientSocket2.on("signal", (data) => {
+                expect(data.payload.additions).toEqual([commitData.additions[0]]);
+                clientSocket2.disconnect();
+                done();
+            });
+        });
+    });
+});
