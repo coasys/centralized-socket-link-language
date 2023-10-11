@@ -84,10 +84,6 @@ const AgentSyncState = sequelize.define('AgentSyncState', {
         type: DataTypes.STRING(255),
         allowNull: false,
     },
-    Hash: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-    },
     Timestamp: {
         type: DataTypes.DATE,
         allowNull: false,
