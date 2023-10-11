@@ -39,7 +39,6 @@ describe("Test", () => {
             "removals": [],
             "linkLanguageUUID": "languageID",
             "did": "did:test1",
-            "rommId": channelId
         }))
 
         clientSocket.on("commit-status", (arg) => {
@@ -64,7 +63,6 @@ describe("Test", () => {
             "removals": [],
             "linkLanguageUUID": "languageID2",
             "did": "did:test-sync1",
-            "roomId": channelId
         };
 
         // User 1 commits a message
@@ -109,7 +107,6 @@ describe("Test", () => {
             "removals": [],
             "linkLanguageUUID": "languageID3",
             "did": "did:test-signal1",
-            "roomId": channelId
         };
 
         // Another user connects and listens to signal
@@ -122,6 +119,7 @@ describe("Test", () => {
             clientSocket.emit("commit", commitData);
 
             clientSocket2.on("signal", (data) => {
+                console.log("CLIENT GOT SIGNAL",data);
                 expect(data.payload.additions).toEqual([commitData.additions[0]]);
                 clientSocket2.disconnect();
                 done();
@@ -137,7 +135,7 @@ describe("Test", () => {
         }))
 
         clientSocket.on("render-emit", (arg) => {
-            expect(arg.payload.length).toBe(1);
+            expect(arg.payload.additions.length).toBe(1);
             done();
         });
     });
@@ -158,4 +156,69 @@ describe("Test", () => {
             done();
         });
     })
+
+    test("Commit, Sync, Update Sync State, and Sync Again", (done) => {
+        const channelId = "test-update-sync";
+        const commitData = {
+            "additions": [{
+                "author": "did:test-update-sync1",
+                "timestamp": Date.now(),
+                "data": {
+                    "source": "test-update-sync",
+                    "predicate": "test-update-sync",
+                    "target": "test-update-sync"
+                }
+            }],
+            "removals": [],
+            "linkLanguageUUID": channelId,
+            "did": "did:test-update-sync1",
+        };
+
+        // User 1 commits a message
+        clientSocket.emit("commit", commitData);
+
+        clientSocket.on("commit-status", (arg) => {
+            expect(arg.status).toBe("Ok");
+
+            // After the commit, another user connects and calls sync
+            const clientSocket2 = ioc(`http://localhost:3000`);
+
+            clientSocket2.on("connect", () => {
+                clientSocket2.emit("join-room", channelId);
+                clientSocket2.emit("sync", {
+                    "linkLanguageUUID": channelId,
+                    "did": "did:test-update-sync2"
+                });
+            });
+
+            clientSocket2.on("sync-emit", (data) => {
+                console.log("SYNC EMIT GOT", data);
+                expect(data.payload.additions).toEqual([commitData.additions[0]]);
+                
+                // Update sync state
+                clientSocket2.emit("update-sync-state", {
+                    "did": "did:test-update-sync2",
+                    "date": new Date(),
+                    "linkLanguageUUID": channelId
+                });
+            });
+
+            clientSocket2.on("update-sync-state-status", (updateStatus) => {
+                expect(updateStatus.status).toBe("Ok");
+                
+                // Call sync again
+                clientSocket2.emit("sync", {
+                    "linkLanguageUUID": channelId,
+                    "did": "did:test-update-sync2"
+                });
+            });
+
+            clientSocket2.on("sync-emit", (data) => {
+                // Expecting that we don't receive any new additions
+                expect(data.payload.additions).toHaveLength(0);
+                clientSocket2.disconnect();
+                done();
+            });
+        });
+    });
 });

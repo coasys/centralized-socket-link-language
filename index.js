@@ -2,8 +2,7 @@ const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const { Sequelize } = require("sequelize");
-const { Link, AgentStatus, ActiveAgent, AgentSyncState, initDatabase, sequelize } = require("./db.js");
-const { hash } = require("./utils.js");
+const { Diff, AgentStatus, ActiveAgent, AgentSyncState, initDatabase, sequelize } = require("./db.js");
 
 async function startSocketServer() {
     await initDatabase();
@@ -56,47 +55,31 @@ async function startSocketServer() {
         // });
 
         //Allows for the client to tell the server that it received some data; and it can update its sync state to a given timestamp
-        socket.on("update-sync-state", async ({ did, hash, date, linkLanguageUUID }) => {
+        socket.on("update-sync-state", async ({ did, date, linkLanguageUUID }) => {
             const results = await AgentSyncState.upsert(
-                {DID: did, LinkLanguageUUID: linkLanguageUUID, Timestamp: date, Hash: hash}, {
-                fields: ['DID', 'LinkLanguageUUID', 'Timestamp', 'HASH'],
+                {DID: did, LinkLanguageUUID: linkLanguageUUID, Timestamp: date}, {
+                fields: ['DID', 'LinkLanguageUUID', 'Timestamp'],
             });
             console.log("updated sync state with result", results);
             io.to(connectionId).emit("update-sync-state-status", {status: "Ok"})
         })
 
         //Allows the client to save a commit to the server; and have that commit be signaled to all agents in the room
-        socket.on("commit", async ({ additions, removals, linkLanguageUUID, did, roomId }) => {
-            let commitServerTimestamp = new Date();
+        socket.on("commit", async ({ additions, removals, linkLanguageUUID, did }) => {
+            let serverRecordTimestamp = new Date();
 
-            if (removals.length > 0) {
-                const updatePromises = removals.map((removal) => {
-                    return Link.update({ Removed: true }, {
-                        where: { Link: JSON.stringify(removal) }
-                    });
+            try {
+                const results = await Diff.create({
+                    LinkLanguageUUID: linkLanguageUUID,
+                    DID: did,
+                    Diff: {
+                        additions: JSON.stringify(additions),
+                        removals: JSON.stringify(removals)
+                    },
+                    ServerRecordTimestamp: serverRecordTimestamp,
                 });
-
-                try {
-                    const results = await Promise.all(updatePromises);
-                    console.log('Removal updates successful:', results);
-                } catch (error) {
-                    console.error('Error updating removal records:', error);
-                }
-            }
-
-            if (additions.length > 0) {
-                try {
-                    const results = await Link.bulkCreate(additions.map((addition) => ({
-                        LinkLanguageUUID: linkLanguageUUID,
-                        Hash: hash(addition.data, addition.author, addition.timestamp),
-                        Link: JSON.stringify(addition),
-                        DID: addition.author,
-                        LinkTimestamp: addition.timestamp,
-                    })));
-                    console.log('Addtion updates successful:', results);
-                } catch (error) {
-                    console.error('Error updating addition records:', error);
-                }
+            } catch (error) {
+                console.error('Error updating diff records:', error);
             }
 
             // await AgentSyncState.upsert({
@@ -121,13 +104,13 @@ async function startSocketServer() {
                     additions,
                     removals
                 },
-                timestamp: commitServerTimestamp
+                serverRecordTimestamp
             });
             
             //Tell the original client that it was recorded correctly
             io.to(connectionId).emit("commit-status", {
                 status: "Ok",
-                timestamp: commitServerTimestamp
+                serverRecordTimestamp
             });
         })
 
@@ -147,14 +130,14 @@ async function startSocketServer() {
                 }
 
                 // Retrieve records from Links
-                const results = await Link.findAll({
+                const results = await Diff.findAll({
                     where: {
                         LinkLanguageUUID: linkLanguageUUID,
-                        LinkTimestamp: {
+                        ServerRecordTimestamp: {
                             [Sequelize.Op.gte]: timestamp,
                         },
                     },
-                    order: [['LinkTimestamp', 'DESC']],
+                    order: [['ServerRecordTimestamp', 'DESC']],
                 });
 
                 const value = {
@@ -163,30 +146,49 @@ async function startSocketServer() {
                 }
 
                 for (const result of results) {
-                    if (result.Removed) {
-                        value.removals.push(JSON.parse(result.Link))
-                    } else {
-                        value.additions.push(JSON.parse(result.Link))
-                    }
+                    value.additions.push(...JSON.parse(result.Diff.additions));
+                    value.removals.push(...JSON.parse(result.Diff.removals));
+                }
+
+                let serverRecordTimestamp;
+                if (results.length > 0) {
+                    serverRecordTimestamp = results[0]?.ServerRecordTimestamp;
+                } else {
+                    serverRecordTimestamp = null;
                 }
 
                 //Only return the sync results to the connection id that requested it
-                io.to(connectionId).emit("sync-emit", { payload: value })
+                io.to(connectionId).emit("sync-emit", { payload: value, serverRecordTimestamp })
             } catch (error) {
                 console.error('Error retrieving links:', error);
             }
         })
 
         socket.on("render", async ({ linkLanguageUUID }) => {
-            const results = await Link.findAll({
+            const results = await Diff.findAll({
                 where: {
                     LinkLanguageUUID: linkLanguageUUID,
                 },
             });
 
-            const finalResult = results.map((r) => JSON.parse(r.Link))
+            const value = {
+                additions: [],
+                removals: []
+            }
 
-            io.to(connectionId).emit("render-emit", { payload: finalResult });
+            for (const result of results) {
+                value.additions.push(...JSON.parse(result.Diff.additions));
+                value.removals.push(...JSON.parse(result.Diff.removals));
+            }
+
+            let serverRecordTimestamp;
+            if (results.length > 0) {
+                serverRecordTimestamp = results[0]?.ServerRecordTimestamp;
+            } else {
+                serverRecordTimestamp = null;
+            }
+
+            io.to(connectionId).emit("render-emit", { payload: value, serverRecordTimestamp });
         })
     });
 

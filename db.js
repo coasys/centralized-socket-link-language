@@ -2,7 +2,7 @@ const { Sequelize, DataTypes } = require("sequelize");
 
 const sequelize = new Sequelize('sqlite::memory:');
 
-const Link = sequelize.define('Link', {
+const Diff = sequelize.define('Diff', {
     LinkID: {
         type: DataTypes.INTEGER,
         primaryKey: true,
@@ -12,11 +12,7 @@ const Link = sequelize.define('Link', {
         type: DataTypes.STRING(255),
         allowNull: false,
     },
-    Hash: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    Link: {
+    Diff: {
         type: DataTypes.JSON,
         allowNull: false,
     },
@@ -24,14 +20,10 @@ const Link = sequelize.define('Link', {
         type: DataTypes.STRING(255),
         allowNull: false,
     },
-    LinkTimestamp: {
+    ServerRecordTimestamp: {
         type: DataTypes.DATE,
         allowNull: false,
-    },
-    Removed: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-    },
+    }
 });
 
 const AgentStatus = sequelize.define('AgentStatus', {
@@ -84,10 +76,6 @@ const AgentSyncState = sequelize.define('AgentSyncState', {
         type: DataTypes.STRING(255),
         allowNull: false,
     },
-    Hash: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-    },
     Timestamp: {
         type: DataTypes.DATE,
         allowNull: false,
@@ -101,7 +89,7 @@ const AgentSyncState = sequelize.define('AgentSyncState', {
 });
 
 async function initDatabase() {
-    await Link.sync();
+    await Diff.sync();
     await AgentStatus.sync();
     await ActiveAgent.sync();
     await AgentSyncState.sync();
@@ -110,7 +98,7 @@ async function initDatabase() {
 module.exports = {
     sequelize,
     initDatabase,
-    Link,
+    Diff,
     AgentStatus,
     ActiveAgent,
     AgentSyncState,
