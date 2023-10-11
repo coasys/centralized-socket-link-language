@@ -48,11 +48,11 @@ async function startSocketServer() {
             console.log(`Socket ${socket.id} left room ${roomId}`);
         });
 
-        // // Broadcast a message to a specific room (unique ID)
-        // socket.on("broadcast", function ({ roomId, signal }) {
-        //     console.log(`Broadcasting to room ${roomId}: ${signal}`);
-        //     io.to(roomId).emit("signal", signal);
-        // });
+        // Broadcast a message to a specific room (unique ID)
+        socket.on("broadcast", function ({ roomId, signal }) {
+            console.log(`Broadcasting to room ${roomId}: ${signal}`);
+            io.to(roomId).emit("signal", signal);
+        });
 
         //Allows for the client to tell the server that it received some data; and it can update its sync state to a given timestamp
         socket.on("update-sync-state", async ({ did, date, linkLanguageUUID }) => {
@@ -116,7 +116,7 @@ async function startSocketServer() {
             // });
 
             //Send a signal to all agents online in the link language with the commit data
-            io.to(linkLanguageUUID).emit("signal", {
+            io.to(linkLanguageUUID).emit("signal-emit", {
                 payload: {
                     additions,
                     removals
