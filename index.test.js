@@ -194,11 +194,12 @@ describe("Test", () => {
             clientSocket2.on("sync-emit", (data) => {
                 console.log("SYNC EMIT GOT", data);
                 expect(data.payload.additions).toEqual([commitData.additions[0]]);
+                let serverRecordTimestamp = data.serverRecordTimestamp;
                 
                 // Update sync state
                 clientSocket2.emit("update-sync-state", {
                     "did": "did:test-update-sync2",
-                    "date": new Date(),
+                    "date": serverRecordTimestamp,
                     "linkLanguageUUID": channelId
                 });
             });
