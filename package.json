@@ -1,0 +1,12 @@
+{
+  "name": "centralized-link-language-socket",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "sequelize": "^6.33.0",
+    "socket-io": "^1.0.0",
+    "sqlite": "^5.0.1"
+  }
+}
