@@ -117,8 +117,7 @@ describe("Test", () => {
 
             // User 1 commits a message
             clientSocket.emit("commit", commitData);
-
-            clientSocket2.on("signal", (data) => {
+            clientSocket2.on("signal-emit", (data) => {
                 console.log("CLIENT GOT SIGNAL",data);
                 expect(data.payload.additions).toEqual([commitData.additions[0]]);
                 clientSocket2.disconnect();
