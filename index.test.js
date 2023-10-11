@@ -1,5 +1,7 @@
 const startSocketServer = require('./index')
 const ioc = require('socket.io-client');
+const fs = require('fs');
+const fetch = require('node-fetch');
 
 async function sleep(ms) {
     return new Promise((resolve) => setTimeout(() => {resolve()}, ms));
@@ -21,6 +23,8 @@ describe("Test", () => {
     afterAll(() => {
         io.close();
         clientSocket.disconnect();
+        //Delete the database.sqlite file
+        fs.rmSync("./database.sqlite");
     });
 
     test("Commit test", (done) => {
@@ -221,4 +225,58 @@ describe("Test", () => {
             });
         });
     });
+
+    test("Agent can get their timestamp after updating", (done) => {
+        const channelId = "test-fetch-sync-state";
+
+        // After the commit, another user connects and calls sync
+        const clientSocket2 = ioc(`http://localhost:3000`);
+
+        let date1 = new Date();
+        let date2 = new Date();
+
+        clientSocket2.emit("update-sync-state", {
+            "did": "did:test-update-sync2",
+            "date": date1,
+            "linkLanguageUUID": channelId
+        });
+
+        postData("http://localhost:3000/currentRevision", {did: "did:test-update-sync2", "linkLanguageUUID": "test-fetch-sync-state"})
+            .then((data) => {
+                expect(data.currentRevision).toEqual(date1.toISOString());
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+
+        clientSocket2.emit("update-sync-state", {
+            "did": "did:test-update-sync2",
+            "date": date2,
+            "linkLanguageUUID": channelId
+        });
+
+        postData("http://localhost:3000/currentRevision", {did: "did:test-update-sync2", "linkLanguageUUID": "test-fetch-sync-state"})
+            .then((data) => {
+                expect(data.currentRevision).toEqual(date2.toISOString());
+                done();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    });
 });
+
+function postData(url = '', data = {}) {
+    return fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .catch(error => {
+            console.error('Error:', error);
+            throw error;
+        });
+}
