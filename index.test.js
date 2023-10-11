@@ -8,7 +8,7 @@ async function sleep(ms) {
 describe("Test", () => {
     let io, clientSocket;
 
-    const channelId = "test"
+    const channelId = "languageID"
     
     beforeAll(async () => {
         io = startSocketServer();
