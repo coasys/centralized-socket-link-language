@@ -134,7 +134,7 @@ async function startSocketServer() {
                     where: {
                         LinkLanguageUUID: linkLanguageUUID,
                         ServerRecordTimestamp: {
-                            [Sequelize.Op.gte]: timestamp,
+                            [Sequelize.Op.gt]: timestamp,
                         },
                     },
                     order: [['ServerRecordTimestamp', 'DESC']],
