@@ -23,7 +23,7 @@ describe("Test", () => {
         clientSocket.disconnect();
     });
 
-    test("Join room", (done) => {
+    test("Commit test", (done) => {
         clientSocket.emit("join-room", channelId);
 
         clientSocket.emit("commit", ({
@@ -43,7 +43,6 @@ describe("Test", () => {
         }))
 
         clientSocket.on("commit-status", (arg) => {
-            console.log('meow')
             expect(arg.status).toBe("Ok");
             done();
         });
@@ -126,4 +125,34 @@ describe("Test", () => {
             });
         });
     });
+
+    test("Render test", (done) => {
+        clientSocket.emit("join-room", channelId);
+
+        clientSocket.emit("render", ({
+            "linkLanguageUUID": "languageID",
+        }))
+
+        clientSocket.on("render-emit", (arg) => {
+            expect(arg.payload.length).toBe(1);
+            done();
+        });
+    });
+
+    test("Sync test", (done) => {
+        clientSocket.emit("join-room", channelId);
+
+        clientSocket.emit("sync", ({
+            "linkLanguageUUID": "languageID",
+            "did": "did:test1",
+            "timestamp": 1697033597138,
+        }))
+
+        clientSocket.on("sync-emit", (arg) => {
+            console.log("wow", arg)
+            expect(arg.payload.additions.length).toBe(1);
+            expect(arg.payload.removals.length).toBe(0);
+            done();
+        });
+    })
 });
