@@ -8,7 +8,7 @@ async function sleep(ms) {
 describe("Test", () => {
     let io, clientSocket;
 
-    const channelId = "test"
+    const channelId = "languageID2"
     
     beforeAll(async () => {
         io = startSocketServer();
@@ -49,11 +49,12 @@ describe("Test", () => {
     });
 
     test("Commit and Sync", (done) => {
-        const channelId = "languageID2";
+        const time = Date.now();
+
         const commitData = {
             "additions": [{
                 "author": "did:test-sync1",
-                "timestamp": Date.now(),
+                "timestamp": time,
                 "data": {
                     "source": "test-sync",
                     "predicate": "test-sync",
@@ -77,9 +78,11 @@ describe("Test", () => {
 
             clientSocket2.on("connect", () => {
                 clientSocket2.emit("join-room", channelId);
+                clientSocket2.emit("update-sync-state", { linkLanguageUUID: "languageID2", date: time, did: "did:test-sync2" });
                 clientSocket2.emit("sync", {
                     "linkLanguageUUID": "languageID2",
-                    "did": "did:test-sync2"
+                    "did": "did:test-sync2",
+                    // timestamp: time
                 });
             });
 
