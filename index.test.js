@@ -234,35 +234,25 @@ describe("Test", () => {
 
         let date1 = new Date();
         let date2 = new Date();
+        const did = "did:sync-update";
 
         clientSocket2.emit("update-sync-state", {
-            "did": "did:test-update-sync2",
+            "did": did,
             "date": date1,
             "linkLanguageUUID": channelId
         });
 
-        postData("http://localhost:3000/currentRevision", {did: "did:test-update-sync2", "linkLanguageUUID": "test-fetch-sync-state"})
-            .then((data) => {
-                expect(data.currentRevision).toEqual(date1.toISOString());
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-
-        clientSocket2.emit("update-sync-state", {
-            "did": "did:test-update-sync2",
-            "date": date2,
-            "linkLanguageUUID": channelId
+        clientSocket2.on("update-sync-state-status", (updateStatus) => {
+            expect(updateStatus.status).toBe("Ok");
+            postData("http://localhost:3000/currentRevision", { did: did, "linkLanguageUUID": "test-fetch-sync-state" })
+                .then((data) => {
+                    expect(data.currentRevision).toEqual(date1.toISOString());
+                    done();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
         });
-
-        postData("http://localhost:3000/currentRevision", {did: "did:test-update-sync2", "linkLanguageUUID": "test-fetch-sync-state"})
-            .then((data) => {
-                expect(data.currentRevision).toEqual(date2.toISOString());
-                done();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
     });
 });
 

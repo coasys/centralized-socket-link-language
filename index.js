@@ -8,6 +8,7 @@ async function startSocketServer() {
     await initDatabase();
 
     const app = express();
+    app.use(express.json());
 
     const server = createServer(app);
     const io = new Server(server, {
@@ -28,19 +29,17 @@ async function startSocketServer() {
         //Get did and linkLanguageUuid from posted json
         const did = req.body.did;
         const linkLanguageUUID = req.body.linkLanguageUUID;
-        console.log("POST GOT", did, linkLanguageUUID);
 
-        AgentSyncState.findAll({
+        AgentSyncState.findOne({
             where: {
                 DID: did,
                 LinkLanguageUUID: linkLanguageUUID,
             },
-        }).then((results) => {
-            console.log("CURRENT REVISION GOT", results);
-            if (results.length > 0) {
-                res.json({currentRevision: results[0].Timestamp});
+        }).then((syncState) => {
+            if (syncState) {
+                return res.json({currentRevision: syncState.Timestamp});
             } else {
-                res.json({currentRevision: null});
+                return res.json({currentRevision: null});
             }
         });
     })
