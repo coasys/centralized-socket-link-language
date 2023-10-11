@@ -23,7 +23,7 @@ describe("Test", () => {
         clientSocket.disconnect();
     });
 
-    test("Join room", (done) => {
+    test("Commit test", (done) => {
         clientSocket.emit("join-room", channelId);
 
         clientSocket.emit("commit", ({
