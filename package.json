@@ -4,11 +4,18 @@
   "main": "index.js",
   "license": "MIT",
   "type": "module",
+  "scripts": {
+    "test": "jest index.test.js"
+  },
   "dependencies": {
     "express": "^4.18.2",
     "sequelize": "^6.33.0",
     "socket.io": "^4.7.2",
     "sqlite": "^5.0.1",
     "sqlite3": "^5.1.6"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "socket.io-client": "^4.7.2"
   }
 }
