@@ -1,127 +1,13 @@
 const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
-const { Sequelize, DataTypes } = require("sequelize");
+const { Sequelize } = require("sequelize");
+const { Link, AgentStatus, ActiveAgent, AgentSyncState, initDatabase, sequelize } = require("./db.js");
+const { hash } = require("./utils.js");
 
-const sequelize = new Sequelize('sqlite::memory:');
+async function startSocketServer() {
+    await initDatabase();
 
-const Link = sequelize.define('Link', {
-    LinkID: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-    },
-    LinkLanguageUUID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    Hash: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    Link: {
-        type: DataTypes.JSON,
-        allowNull: false,
-    },
-    DID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    LinkTimestamp: {
-        type: DataTypes.DATE,
-        allowNull: false,
-    },
-    Removed: {
-        type: DataTypes.BOOLEAN,
-        defaultValue: false,
-    },
-});
-
-const AgentStatus = sequelize.define('AgentStatus', {
-    DID: {
-        type: DataTypes.STRING(255),
-        primaryKey: true,
-        allowNull: false,
-    },
-    LinkLanguageUUID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    Link: {
-        type: DataTypes.JSON,
-        allowNull: true, // Adjust as needed
-    },
-    StatusTimestamp: {
-        type: DataTypes.DATE,
-        allowNull: false,
-    },
-});
-
-const ActiveAgent = sequelize.define('ActiveAgent', {
-    LinkID: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-    },
-    DID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    LinkLanguageUUID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-});
-
-const AgentSyncState = sequelize.define('AgentSyncState', {
-    ID: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-    },
-    DID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    LinkLanguageUUID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    Hash: {
-        type: DataTypes.STRING(255),
-        allowNull: true,
-    },
-    Timestamp: {
-        type: DataTypes.DATE,
-        allowNull: false,
-    },
-}, {
-    uniqueKeys: {
-        unique_constraint: {
-            fields: ['DID', 'LinkLanguageUUID'],
-        },
-    },
-});
-
-Link.sync();
-AgentStatus.sync();
-ActiveAgent.sync();
-AgentSyncState.sync();
-
-function hash(data, author, timestamp) {
-    console.log(data, author, timestamp)
-    const mash = JSON.stringify(data, Object.keys(data).sort()) +
-        JSON.stringify(author) + timestamp
-    let hash = 0, i, chr;
-    for (i = 0; i < mash.length; i++) {
-        chr = mash.charCodeAt(i);
-        hash = ((hash << 5) - hash) + chr;
-        hash |= 0; // Convert to 32bit integer
-    }
-    return hash;
-}
-
-function startSocketServer() {
     const app = express();
 
     const server = createServer(app);

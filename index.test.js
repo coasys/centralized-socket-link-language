@@ -11,7 +11,7 @@ describe("Test", () => {
     const channelId = "languageID2"
     
     beforeAll(async () => {
-        io = startSocketServer();
+        io = await startSocketServer();
         
         await sleep(2000);
 
