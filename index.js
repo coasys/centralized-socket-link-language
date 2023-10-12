@@ -197,7 +197,7 @@ async function startSocketServer() {
                 if (results.length > 0) {
                     serverRecordTimestamp = results[0]?.ServerRecordTimestamp;
                 } else {
-                    serverRecordTimestamp = null;
+                    serverRecordTimestamp = new Date();
                 }
 
                 //Only return the sync results to the connection id that requested it
