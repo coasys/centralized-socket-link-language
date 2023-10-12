@@ -83,12 +83,6 @@ const AgentSyncState = sequelize.define('AgentSyncState', {
         type: DataTypes.DATE,
         allowNull: false,
     },
-}, {
-    uniqueKeys: {
-        unique_constraint: {
-            fields: ['DID', 'LinkLanguageUUID'],
-        },
-    },
 });
 
 async function initDatabase() {
