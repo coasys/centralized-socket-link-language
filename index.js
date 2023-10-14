@@ -115,7 +115,7 @@ async function startSocketServer() {
       }
 
       //Filter out the agent who made the request
-      const onlineAgentsInLinkLanguageFiltered = onlineAgentsInLinkLanguage.filter((agent) => agent.did !== requestAgentsDid);
+      const onlineAgentsInLinkLanguageFiltered = Array.from(onlineAgentsInLinkLanguage).filter((agent) => agent.did !== requestAgentsDid);
 
       //For each onlineAgent, get their status or if no status have status has null
       const onlineAgentsWithStatus = [];
