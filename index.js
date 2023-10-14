@@ -150,24 +150,28 @@ async function startSocketServer() {
     console.log(`${timestamp()} New connection: ${socket.id}; who has did: ${did}; who is connected on linkLanguageUUID: ${linkLanguageUUID}`);
 
     // If this linkLanguageUUID is not yet in the map, add it with an empty Set
-    if (!onlineAgents.has(linkLanguageUUID)) {
-      onlineAgents.set(linkLanguageUUID, new Set());
-    }
+    if (did && linkLanguageUUID) {
+      if (!onlineAgents.has(linkLanguageUUID)) {
+        onlineAgents.set(linkLanguageUUID, new Set());
+      }
 
-    // Add the DID to the Set for this linkLanguageUUID
-    onlineAgents.get(linkLanguageUUID).add({did: DID, socketId: socket.id});
+      // Add the DID to the Set for this linkLanguageUUID
+      onlineAgents.get(linkLanguageUUID).add({did: DID, socketId: socket.id});
+    }
 
     socket.on("disconnect", (reason) => {
       console.log(
         `${timestamp()} Socket ${socket.id}; (${did}), (${linkLanguageUUID}); disconnected. Reason: ${reason}`
       );
 
-      // Remove the DID from the Set
-      onlineAgents.get(linkLanguageUUID)?.delete({did: DID, socketId: socket.id});
+      if (did && linkLanguageUUID) {
+        // Remove the DID from the Set
+        onlineAgents.get(linkLanguageUUID)?.delete({did: DID, socketId: socket.id});
 
-      // Optionally, if the Set is now empty, you can delete the linkLanguageUUID key from the map
-      if (onlineAgents.get(linkLanguageUUID)?.size === 0) {
-        onlineAgents.delete(linkLanguageUUID);
+        // Optionally, if the Set is now empty, you can delete the linkLanguageUUID key from the map
+        if (onlineAgents.get(linkLanguageUUID)?.size === 0) {
+          onlineAgents.delete(linkLanguageUUID);
+        }
       }
     });
 
