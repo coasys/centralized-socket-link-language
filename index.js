@@ -212,7 +212,7 @@ async function startSocketServer() {
         const onlineAgentsInLinkLanguage = onlineAgents.get(linkLanguageUUID);
         
         //For the given set find the object which contains the remoteAgentDid
-        const remoteAgent = onlineAgentsInLinkLanguage.find((agent) => agent.did === remoteAgentDid);
+        const remoteAgent = Array.from(onlineAgentsInLinkLanguage).find((agent) => agent.did === remoteAgentDid);
         if (!remoteAgent) {
           return cb("Remote agent not found", null);
         }
