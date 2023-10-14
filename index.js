@@ -2,7 +2,9 @@ const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const { Sequelize } = require("sequelize");
-const { Diff, AgentSyncState, initDatabase } = require("./db.js");
+const { Diff, AgentSyncState, initDatabase, AgentStatus } = require("./db.js");
+
+const onlineAgents = new Map();
 
 async function startSocketServer() {
   await initDatabase();
@@ -44,16 +46,129 @@ async function startSocketServer() {
     });
   });
 
+  //Returns all agents who have ever interacted in a given link language uuid
+  app.get("/getOthers", (req, res) => {
+    //Get linkLanguageUUID from query params
+    const linkLanguageUUID = req.query.linkLanguageUUID;
+
+    //Get all agents in the link language
+    //Return an array of all agents in the link language
+    AgentSyncState.findAll({
+      where: {
+        LinkLanguageUUID: linkLanguageUUID,
+      },
+    }).then((syncStates) => {
+      const others = syncStates.map((syncState) => syncState.DID);
+      return res.json(others);
+    });
+  });
+
+  //Sets the status for some given agent in a given link language
+  app.post("/setAgentStatus", async (req, res) => {
+    try {
+      //Get did and linkLanguageUuid from posted json
+      const did = req.body.did;
+      const linkLanguageUUID = req.body.linkLanguageUUID;
+      const status = req.body.status;
+
+      const existingRecord = await AgentStatus.findOne({
+        where: {
+          DID: did,
+          LinkLanguageUUID: linkLanguageUUID,
+        },
+      });
+
+      if (existingRecord) {
+        // Update the existing record
+        await existingRecord.update({
+          Status: status,
+        });
+        console.log("Record updated:", did, linkLanguageUUID, status);
+      } else {
+        const results = await AgentStatus.upsert({
+          DID: did,
+          LinkLanguageUUID: linkLanguageUUID,
+          Status: status,
+        });
+        console.log("updated agent status with result", results);
+      };
+      return res.json({ status: "Ok" });
+    } catch (e) {
+      console.error("Error setting agent status:", e);
+      return res.json({ status: "Error" });
+    }
+  });
+
+  //Gets the status for all agents online from Map and their saved status from the database
+  app.get("/getOnlineAgents", async (req, res) => {
+    try {
+      //Get linkLanguageUUID from query params
+      const linkLanguageUUID = req.query.linkLanguageUUID;
+
+      //Get all agents in the link language
+      //Return an array of all agents in the link language
+      const onlineAgentsInLinkLanguage = onlineAgents.get(linkLanguageUUID);
+
+      //For each onlineAgent, get their status or if no status have status has null
+      const onlineAgentsWithStatus = [];
+      for (const onlineAgent of onlineAgentsInLinkLanguage) {
+        const did = onlineAgent.did;
+        const agentStatus = await AgentStatus.findOne({
+          where: {
+            DID: did,
+            LinkLanguageUUID: linkLanguageUUID,
+          },
+        });
+
+        if (agentStatus) {
+          onlineAgentsWithStatus.push({
+            did: did,
+            status: agentStatus.Status,
+          });
+        } else {
+          onlineAgentsWithStatus.push({
+            did: did,
+            status: null,
+          });
+        }
+      }
+      
+      //Return the array of online agents with status
+      return res.json(onlineAgentsWithStatus);
+    } catch (e) {
+      console.error("Error getting online agents:", e);
+      return res.json({ status: "Error" });
+    }
+  });
+
   // Set up a simple timestamp function for prettier logs
   const timestamp = () => `[${new Date().toISOString()}]`;
 
   io.on("connection", function (socket) {
-    console.log(`${timestamp()} New connection: ${socket.id}`);
+    const did = socket.handshake.query.did;
+    const linkLanguageUUID = socket.handshake.query.linkLanguageUUID;
+    console.log(`${timestamp()} New connection: ${socket.id}; who has did: ${did}; who is connected on linkLanguageUUID: ${linkLanguageUUID}`);
+
+    // If this linkLanguageUUID is not yet in the map, add it with an empty Set
+    if (!onlineAgents.has(linkLanguageUUID)) {
+      onlineAgents.set(linkLanguageUUID, new Set());
+    }
+
+    // Add the DID to the Set for this linkLanguageUUID
+    onlineAgents.get(linkLanguageUUID).add({did: DID, socketId: socket.id});
 
     socket.on("disconnect", (reason) => {
       console.log(
-        `${timestamp()} Socket ${socket.id} disconnected. Reason: ${reason}`
+        `${timestamp()} Socket ${socket.id}; (${did}), (${linkLanguageUUID}); disconnected. Reason: ${reason}`
       );
+
+      // Remove the DID from the Set
+      onlineAgents.get(linkLanguageUUID)?.delete({did: DID, socketId: socket.id});
+
+      // Optionally, if the Set is now empty, you can delete the linkLanguageUUID key from the map
+      if (onlineAgents.get(linkLanguageUUID)?.size === 0) {
+        onlineAgents.delete(linkLanguageUUID);
+      }
     });
 
     socket.on("error", (error) => {
@@ -76,6 +191,55 @@ async function startSocketServer() {
     socket.on("broadcast", function ({ roomId, signal }) {
       console.log(`Broadcasting to room ${roomId}: ${signal}`);
       io.to(roomId).emit("signal", signal);
+    });
+
+    // Telepresence handler for sending a signal to a remote agent by did & link language
+    socket.on("send-signal", async ({ remoteAgentDid, linkLanguageUUID, payload }, cb) => {
+      try {
+        //Get socket id for remote agent given the linkLanguageUUID
+        const onlineAgentsInLinkLanguage = onlineAgents.get(linkLanguageUUID);
+        
+        //For the given set find the object which contains the remoteAgentDid
+        const remoteAgent = onlineAgentsInLinkLanguage.find((agent) => agent.did === remoteAgentDid);
+        if (!remoteAgent) {
+          return cb("Remote agent not found", null);
+        }
+        //Get the socket id for the remote agent
+        const remoteAgentSocketId = remoteAgent.socketId;
+
+        //Send signal to remote agent
+        io.to(remoteAgentSocketId).emit("telepresence-signal", payload);
+
+        //Notify the client of the successful update using the callback
+        cb(null, {
+          status: "Ok",
+        });
+      } catch (e) {
+        console.error("Error sending signal:", e);
+        cb(e, null);
+      }
+    });
+
+    // Telepresence handler for sending a broadcast to all agents in a link language
+    socket.on("send-broadcast", async ({linkLanguageUUID, payload}, cb) => {
+      try {
+        //Get all agents in the link language
+        const onlineAgentsInLinkLanguage = onlineAgents.get(linkLanguageUUID);
+        
+        //For each online agent, send the broadcast
+        for (const onlineAgent of onlineAgentsInLinkLanguage) {
+          const remoteAgentSocketId = onlineAgent.socketId;
+          io.to(remoteAgentSocketId).emit("telepresence-signal", payload);
+        };
+
+        //Notify the client of the successful update using the callback
+        cb(null, {
+          status: "Ok",
+        });
+      } catch (e) {
+        console.error("Error sending broadcast:", e);
+        cb(e, null);
+      }
     });
 
     //Allows for the client to tell the server that it received some data; and it can update its sync state to a given timestamp

@@ -29,42 +29,6 @@ const Diff = sequelize.define('Diff', {
     }
 });
 
-const AgentStatus = sequelize.define('AgentStatus', {
-    DID: {
-        type: DataTypes.STRING(255),
-        primaryKey: true,
-        allowNull: false,
-    },
-    LinkLanguageUUID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    Link: {
-        type: DataTypes.JSON,
-        allowNull: true, // Adjust as needed
-    },
-    StatusTimestamp: {
-        type: DataTypes.DATE,
-        allowNull: false,
-    },
-});
-
-const ActiveAgent = sequelize.define('ActiveAgent', {
-    LinkID: {
-        type: DataTypes.INTEGER,
-        primaryKey: true,
-        autoIncrement: true,
-    },
-    DID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-    LinkLanguageUUID: {
-        type: DataTypes.STRING(255),
-        allowNull: false,
-    },
-});
-
 const AgentSyncState = sequelize.define('AgentSyncState', {
     ID: {
         type: DataTypes.INTEGER,
@@ -85,18 +49,36 @@ const AgentSyncState = sequelize.define('AgentSyncState', {
     },
 });
 
+const AgentStatus = sequelize.define('AgentStatus', {
+    ID: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+    },
+    DID: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+    },
+    LinkLanguageUUID: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+    },
+    Status: {
+        type: DataTypes.JSON,
+        allowNull: true, // Adjust as needed
+    }
+})
+
 async function initDatabase() {
     await Diff.sync();
-    await AgentStatus.sync();
-    await ActiveAgent.sync();
     await AgentSyncState.sync();
+    await AgentStatus.sync();
 }
 
 module.exports = {
     sequelize,
     initDatabase,
     Diff,
-    AgentStatus,
-    ActiveAgent,
     AgentSyncState,
+    AgentStatus,
 }
