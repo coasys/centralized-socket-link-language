@@ -109,6 +109,10 @@ async function startSocketServer() {
       //Return an array of all agents in the link language
       const onlineAgentsInLinkLanguage = onlineAgents.get(linkLanguageUUID);
 
+      if (!onlineAgentsInLinkLanguage) {
+        return res.json([]);
+      }
+
       //For each onlineAgent, get their status or if no status have status has null
       const onlineAgentsWithStatus = [];
       for (const onlineAgent of onlineAgentsInLinkLanguage) {
