@@ -156,7 +156,7 @@ async function startSocketServer() {
       }
 
       // Add the DID to the Set for this linkLanguageUUID
-      onlineAgents.get(linkLanguageUUID).add({did: DID, socketId: socket.id});
+      onlineAgents.get(linkLanguageUUID).add({did, socketId: socket.id});
     }
 
     socket.on("disconnect", (reason) => {
@@ -166,7 +166,7 @@ async function startSocketServer() {
 
       if (did && linkLanguageUUID) {
         // Remove the DID from the Set
-        onlineAgents.get(linkLanguageUUID)?.delete({did: DID, socketId: socket.id});
+        onlineAgents.get(linkLanguageUUID)?.delete({did, socketId: socket.id});
 
         // Optionally, if the Set is now empty, you can delete the linkLanguageUUID key from the map
         if (onlineAgents.get(linkLanguageUUID)?.size === 0) {
