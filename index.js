@@ -104,6 +104,7 @@ async function startSocketServer() {
     try {
       //Get linkLanguageUUID from query params
       const linkLanguageUUID = req.query.linkLanguageUUID;
+      const requestAgentsDid = req.query.did;
 
       //Get all agents in the link language
       //Return an array of all agents in the link language
@@ -113,9 +114,12 @@ async function startSocketServer() {
         return res.json([]);
       }
 
+      //Filter out the agent who made the request
+      const onlineAgentsInLinkLanguageFiltered = onlineAgentsInLinkLanguage.filter((agent) => agent.did !== requestAgentsDid);
+
       //For each onlineAgent, get their status or if no status have status has null
       const onlineAgentsWithStatus = [];
-      for (const onlineAgent of onlineAgentsInLinkLanguage) {
+      for (const onlineAgent of onlineAgentsInLinkLanguageFiltered) {
         const did = onlineAgent.did;
         const agentStatus = await AgentStatus.findOne({
           where: {
