@@ -308,14 +308,33 @@ async function startSocketServer() {
             ServerRecordTimestamp: serverRecordTimestamp,
           });
 
-          //Send a signal to all agents online in the link language with the commit data
-          io.to(linkLanguageUUID).emit("signal-emit", {
-            payload: {
-              additions,
-              removals,
-            },
-            serverRecordTimestamp,
-          });
+          let onlineAgentsInLinkLanguage = onlineAgents.get(linkLanguageUUID);
+          if (!onlineAgentsInLinkLanguage) {
+            onlineAgentsInLinkLanguageFiltered = [];
+          }
+          
+          //For each online agent, send the broadcast
+          for (const onlineAgent of Array.from(onlineAgentsInLinkLanguage)) {
+            if (onlineAgent.did !== did) {
+              //Send a signal to all agents online in the link language with the commit data
+              io.to(onlineAgent.socketId).emit("signal-emit", {
+                payload: {
+                  additions,
+                  removals,
+                },
+                serverRecordTimestamp,
+              });
+            }
+          };
+
+          // //Send a signal to all agents online in the link language with the commit data
+          // io.to(linkLanguageUUID).emit("signal-emit", {
+          //   payload: {
+          //     additions,
+          //     removals,
+          //   },
+          //   serverRecordTimestamp,
+          // });
 
           // Notify the client of the successful update using the callback
           cb(null, {
@@ -349,7 +368,9 @@ async function startSocketServer() {
           timestamp = agentSyncStateResult[0]?.Timestamp;
         }
 
-        timestamp = 0;
+        if (!timestamp) {
+          timestamp = 0;
+        };
 
         // Retrieve records from Links
         const results = await Diff.findAll({
