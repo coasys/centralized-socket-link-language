@@ -2,7 +2,7 @@ const express = require("express");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const { Sequelize } = require("sequelize");
-const { Diff, AgentSyncState, initDatabase, AgentStatus } = require("./db.js");
+const { Diff, AgentSyncState, initDatabase, AgentStatus, AgentExpression } = require("./db.js");
 
 const onlineAgents = new Map();
 
@@ -22,6 +22,47 @@ async function startSocketServer() {
   app.get("/", (req, res) => {
     res.send("<h1>Hello world</h1>");
   });
+
+  app.get("/agent", async (req, res) => {
+    const did = req.body.did;
+
+    try {
+      const { Expression } = await AgentExpression.findOne({
+        where: {
+          DID: did
+        }
+      });
+
+      if (Expression) {
+        return res.json({ expression: Expression })
+      } else {
+        return res.json({ expression: null })
+      }
+    } catch (e) {
+      console.error("Error getting agent expression:", e);
+      return res.json({ status: "Error" });
+    }
+  })
+
+  app.post('/agent', async (req, res) => {
+    const did = req.body.did;
+    const expression = req.body.expression;
+
+    try {
+      const results = await AgentExpression.upsert({
+        DID: did,
+        Expression: expression,
+        Timestamp: Date.now()
+      })
+  
+      console.log("Added or Updated Agent Expression", results);
+  
+      return res.json({ status: "Ok" });
+    } catch (e) {
+      console.error("Error setting agent expression:", e);
+      return res.json({ status: "Error" });
+    }
+  })
 
   app.post("/currentRevision", (req, res) => {
     //Fetch the agents SyncState given the DID and LinkLanguageUUID
