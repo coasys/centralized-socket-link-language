@@ -69,10 +69,27 @@ const AgentStatus = sequelize.define('AgentStatus', {
     }
 })
 
+const AgentExpression = sequelize.define('AgentExpression', {
+    DID: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+        primaryKey: true,
+    },
+    Expression: {
+        type: DataTypes.JSON,
+        allowNull: false,
+    },
+    Timestamp: {
+        type: DataTypes.DATE,
+        allowNull: false,
+    },
+})
+
 async function initDatabase() {
     await Diff.sync();
     await AgentSyncState.sync();
     await AgentStatus.sync();
+    await AgentExpression.sync();
 }
 
 module.exports = {
@@ -81,4 +98,5 @@ module.exports = {
     Diff,
     AgentSyncState,
     AgentStatus,
+    AgentExpression
 }
