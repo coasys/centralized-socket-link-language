@@ -24,7 +24,7 @@ async function startSocketServer() {
   });
 
   app.get("/agent", async (req, res) => {
-    const did = req.body.did;
+    const did = req.query.did;
 
     try {
       const { Expression } = await AgentExpression.findOne({
@@ -45,10 +45,10 @@ async function startSocketServer() {
   })
 
   app.post('/agent', async (req, res) => {
-    const did = req.body.did;
-    const expression = req.body.expression;
-
     try {
+      const did = req.body.data.did;
+      const expression = req.body.data.expression;
+
       const results = await AgentExpression.upsert({
         DID: did,
         Expression: expression,
